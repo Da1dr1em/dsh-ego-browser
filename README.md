@@ -4,8 +4,19 @@
 agent 通过 `ego_browser_run` 在 ego-browser nodejs 运行时中执行一段 JavaScript 完成整个浏览器任务，
 通过 `ego_browser_help` 随时查阅 API 指南，通过 `ego_browser_status` 体检浏览器宿主。
 
-相比 Playwright MCP / webfetch：驱动真实 Edge/Chrome，复用用户登录态，一个脚本完成
-导航、交互、等待、抽取、验证全流程，任务空间与登录态跨调用持久。
+## 功能特性
+
+- **真实浏览器**：驱动本机已装的 Edge / Chrome（CDP 连接），不是无头抓取器；
+  相比 Playwright MCP / webfetch 更泛用——任何网页交互、搜索、截图、表单、登录态会话都能做。
+- **登录态复用**：浏览器宿主使用独立 profile，登录一次（经 `taskSpaces.handOff` 人工确认）后
+  跨任务、跨会话保持。
+- **一次脚本一任务**：`ego_browser_run` 一段 JavaScript 内完成导航、交互、等待、抽取、验证与
+  分支，符合 ego-lite 的运行时设计；任务空间（taskSpaces）与登录态跨调用持久。
+- **内置 API 指南**：`ego_browser_help` 按 topic 返回完整指南（guide / runtime / rules /
+  taskspaces / handoff / caveats / install），agent 无需记忆 API。
+- **宿主体检**：`ego_browser_status` 运行 `--doctor`，报告浏览器路径、CDP 端点（9522）、
+  状态目录、任务空间，定位启动失败。
+- **零源码侵入**：host-only cordis 插件，经 `cordis.patch.yml` + profile 挂载，不改 DSH 源码。
 
 ## 工具
 
@@ -35,36 +46,52 @@ console.log(JSON.stringify({ taskSpaceId: task.id, heading, url: info.url }))
 
 ## 安装（挂载）
 
-本机实测可用的挂载命令（Windows + pnpm 11）：
+### 方式 A：GitHub 直装（推荐，无需构建）
+
+仓库自带构建产物（`lib/`），克隆即用：
 
 ```powershell
-dsh plugin --profile web add -w --ignore-scripts `
+dsh plugin --profile web add -w `
   --registry=https://registry.npmmirror.com `
-  --network-concurrency=2 --fetch-retries=5 `
-  --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=4000 `
-  link:<plugin-directory>
+  github:Da1dr1em/dsh-ego-browser
 # 然后重启 dsh web 使插件生效
 dsh plugin --profile web list   # 确认依赖树含 dsh-ego-browser，且 bundles 花名册已登记
 ```
 
-要点（踩坑记录）：
+说明：
 
 - `-w`：profile 是 pnpm workspace 根，pnpm 11 的 `add` 不带 `-w` 会报
   `ERR_PNPM_ADDING_TO_ROOT`；`dsh plugin` 是 pnpm 的薄转发器，参数原样透传。
-- `--ignore-scripts`：profile 的 workspace 声明包含 dsh-web-ui 全家桶仓库的包，
-  安装会触发它们的 `prepare`（tsdown 构建）；本机仓库 node_modules 处于降级状态
-  （`ansis` 缺失，预存问题），prepare 必失败——插件 lib 早已构建好，直接跳过。
-- `--registry=...npmmirror`：直连 registry.npmjs.org 批量下载时会偶发
-  `UND_ERR_DESTROYED`（连接被重置），镜像 + 串行（`--network-concurrency=1~2`）+
-  多倍重试可稳定完成；`dsh` 启动器不会透传 npm_config_* 环境变量，必须用命令行参数。
+- `--registry` 可选：直连 registry.npmjs.org 批量下载偶发 `UND_ERR_DESTROYED`
+  （连接被重置）时，换 npmmirror 镜像并加 `--network-concurrency=2 --fetch-retries=5
+  --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=4000` 可稳定完成；
+  `dsh` 启动器不读取 npm_config_* 环境变量，必须用命令行参数。
+- 运行时依赖（`schemastery`）会随安装自动拉取；`@deepseek-ai/dsh-tools`、
+  `@deepseek-ai/dsh-system-prompt` 为 peer 依赖，由 DSH 核心自带满足。
 - 安装中途失败可能把 profile node_modules 修剪到不一致状态，重跑同一命令即可恢复
-  （pnpm 以锁文件为准自愈，`dsh-base`/`dsh-web-app` 等核心包在共享的
-  `~/.dsh/profiles/node_modules` 引导层，不在此依赖图内，不受影响）。
+  （pnpm 以锁文件为准自愈）。
 
-卸载：
+### 方式 B：本地 link（开发调试）
 
 ```powershell
-dsh plugin --profile web remove -w --ignore-scripts @deepseek-ai/dsh-ego-browser
+git clone https://github.com/Da1dr1em/dsh-ego-browser.git
+cd dsh-ego-browser
+npm install --cache .\.npm-cache
+npm run build
+dsh plugin --profile web add -w --ignore-scripts --registry=https://registry.npmmirror.com `
+  --network-concurrency=2 --fetch-retries=5 `
+  --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=4000 `
+  link:<plugin-directory>
+# 重启 dsh web 生效
+```
+
+> 若本机同时挂着 dsh-web-ui 全家桶仓库（profile workspace 含其包），`link:` 安装会触发
+> 它们的 `prepare`（tsdown 构建）——失败时加 `--ignore-scripts` 跳过（插件 lib 已构建好）。
+
+### 卸载
+
+```powershell
+dsh plugin --profile web remove -w @deepseek-ai/dsh-ego-browser
 # 或直接改 profile 的 package.json / cordis.patch.yml
 ```
 
@@ -90,8 +117,8 @@ patch 层 `config` 注入）：
   会话的 workspace-write / full-access 模式无关。
 - 超时清理：Windows 下用 `taskkill /pid <pid> /T /F` 杀整个进程树，避免 shell 包装层
   之后的 node 与浏览器进程残留。
-- 指南资产随包分发（`assets/ego-browser-guide.md` 与 `assets/ego-browser-install.md`，
-  即用户维护的 SKILL.md / install.md 副本），`ego_browser_help` 按 topic 切片返回。
+- 指南资产随包分发（`assets/ego-browser-guide.md` 与 `assets/ego-browser-install.md`），
+  `ego_browser_help` 按 topic 切片返回。
 - 已知边界：浏览器宿主端口 9522 被占用、浏览器无法启动时 `ego_browser_run` 会以非零
   退出并输出错误，先跑 `ego_browser_status` 定位；涉及登录/验证码的人工步骤，脚本应
   调用 `taskSpaces.handOff` 交还控制权并等待用户确认后 `takeOver`。
@@ -103,5 +130,8 @@ npm install --cache .\.npm-cache   # 依赖（含 SDK 类型）
 npm run build                      # tsc 产出 lib/
 npm run smoke                      # 端到端冒烟（需要 full access：会启动真实浏览器）
 ```
+
+**注意**：仓库自带构建产物（`lib/` 已提交，供方式 A 直装）；修改 `src/` 后必须
+`npm run build` 并把新的 `lib/` 一并提交。
 
 `smoke` 覆盖：模块导出、指南资产与切片、`--doctor`、真实脚本执行（创建/复用任务空间）。
