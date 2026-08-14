@@ -1,0 +1,28 @@
+{
+  // Self-contained compiler settings: types resolve from the @deepseek-ai/*
+  // npm SDK packages declared in devDependencies (official NPM SDK), never
+  // from a DSH source checkout. Emits plain Node ESM (.js extension imports)
+  // so lib/ runs directly under `dsh plugin add link:`.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": [
+      "ES2022"
+    ],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "types": [
+      "node"
+    ]
+  },
+  "include": [
+    "src/**/*.ts",
+    "tests/**/*.ts"
+  ]
+}

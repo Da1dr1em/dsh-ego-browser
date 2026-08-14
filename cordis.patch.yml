@@ -1,0 +1,13 @@
+# dsh-ego-browser bundle patch: inserts the plugin row into the profile
+# roster. Applied as a profile bundle layer (the `dsh.bundle.patch` manifest
+# field) over dsh-base; activate with
+# `dsh plugin --profile web add -w link:<plugin-directory>`
+# and restart `dsh web`.
+#
+# The row is a bare host-only plugin by package name: the node half
+# (exports ".") runs in the host process (spawns the ego-browser nodejs
+# runtime, registers agent tools and a system-prompt announcement). No
+# browser half exists — this plugin is tools-only.
+- insert:
+    - id: ego-browser
+      name: '@deepseek-ai/dsh-ego-browser'
