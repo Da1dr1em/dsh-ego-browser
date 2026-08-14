@@ -135,3 +135,12 @@ npm run smoke                      # 端到端冒烟（需要 full access：会�
 `npm run build` 并把新的 `lib/` 一并提交。
 
 `smoke` 覆盖：模块导出、指南资产与切片、`--doctor`、真实脚本执行（创建/复用任务空间）。
+
+## 版权与致谢
+
+- 本插件（代码与文档）为 BSD-3-Clause 许可。
+- `assets/ego-browser-guide.md` 与 `assets/ego-browser-install.md` 是
+  [ego-lite 仓库](https://github.com/citrolabs/ego-lite)（MIT License,
+  Copyright (c) 2026 CitroLabs）中 skills 文档的副本，文件头部已保留版权声明；
+  完整 MIT 文本见 ego-lite 仓库的 LICENSE。
+- 插件仅调用本机 `ego-browser` CLI，不打包或再分发 ego-lite 的代码。

@@ -1,3 +1,4 @@
+# This file is a copy of the ego-lite repository skill (github.com/citrolabs/ego-lite), MIT License, Copyright (c) 2026 CitroLabs. See the ego-lite LICENSE for the full text.
 # Install ego lite (Windows)
 
 Read this file only when the `ego-browser` command isn't working, or when the user asks to install ego lite. For day-to-day browser work, go back to `SKILL.md`.
